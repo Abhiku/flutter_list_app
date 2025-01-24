@@ -1,4 +1,4 @@
-# navatech_assignment
+# flutter_list_app
 
 A new Flutter project.
 
