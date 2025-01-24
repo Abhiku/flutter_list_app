@@ -70,66 +70,97 @@ class _HomeScreenState extends State<HomeScreen> {
             separatorBuilder: (context, index) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final album = state.albums[index];
-              final photos = state.photosByAlbum[album.id] ?? [];
-              final isLoading = state.loadingPhotos[album.id] ?? photos.isEmpty
-                  ? true
-                  : false;
+              final photoState = state.photoStates[album.id] ??
+                  const PhotoState(isLoading: true);
 
               return VisibilityDetector(
-                  key: Key('album_${album.id}'),
-                  onVisibilityChanged: (info) {
-                    if (info.visibleFraction > 0.5) {
-                      context
-                          .read<HomeBloc>()
-                          .add(LoadPhotosForAlbum(album.id));
-                    }
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          album.title,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                key: Key('album_${album.id}'),
+                onVisibilityChanged: (info) {
+                  if (info.visibleFraction > 0.5) {
+                    context.read<HomeBloc>().add(LoadPhotosForAlbum(album.id));
+                  }
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        album.title,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      SizedBox(
-                        height: 120,
-                        child: isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : photos.isEmpty
-                                ? const Center(
-                                    child: Text('No photos available'))
-                                : ListView.separated(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: photos.length,
-                                    separatorBuilder: (context, index) =>
-                                        const SizedBox(width: 8),
-                                    itemBuilder: (context, photoIndex) {
-                                      final photo = photos[photoIndex];
-                                      return AspectRatio(
-                                        aspectRatio: 1,
-                                        child: Card(
-                                          clipBehavior: Clip.antiAlias,
-                                          child: Image.network(
-                                            photo.thumbnailUrl,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return const Center(
-                                                child:
-                                                    Icon(Icons.error_outline),
-                                              );
-                                            },
-                                          ),
-                                        ),
+                    ),
+                    SizedBox(
+                      height: 120,
+                      child: Builder(
+                        builder: (context) {
+                          if (photoState.isLoading) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+
+                          if (photoState.error != null) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    photoState.error!,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh),
+                                    onPressed: () {
+                                      context
+                                          .read<HomeBloc>()
+                                          .add(LoadPhotosForAlbum(album.id));
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (photoState.photos.isEmpty) {
+                            return const Center(
+                                child: Text('No photos available'));
+                          }
+
+                          return ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: photoState.photos.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, photoIndex) {
+                              final photo = photoState.photos[photoIndex];
+                              return AspectRatio(
+                                aspectRatio: 1,
+                                child: Card(
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Image.network(
+                                    photo.thumbnailUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Center(
+                                        child: Icon(Icons.error_outline),
                                       );
                                     },
                                   ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                    ],
-                  ));
+                    ),
+                  ],
+                ),
+              );
             },
           );
         },

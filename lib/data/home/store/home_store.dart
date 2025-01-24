@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:navatech_assignment/core/state/network_result_state.dart';
 import 'package:navatech_assignment/data/entity/album.dart';
 import 'package:navatech_assignment/data/entity/photo.dart';
 import 'package:navatech_assignment/data/repository/repository.dart';
@@ -16,34 +17,55 @@ class LoadPhotosForAlbum extends HomeEvent {
 
 class RefreshAlbums extends HomeEvent {}
 
+// Add this before HomeState class
+class PhotoState {
+  final List<PhotoEntity> photos;
+  final bool isLoading;
+  final String? error;
+
+  const PhotoState({
+    this.photos = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  PhotoState copyWith({
+    List<PhotoEntity>? photos,
+    bool? isLoading,
+    String? error,
+  }) {
+    return PhotoState(
+      photos: photos ?? this.photos,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+}
+
 // States
 class HomeState {
   final bool isLoading;
   final List<AlbumEntity> albums;
-  final Map<int, List<PhotoEntity>> photosByAlbum;
-  final Map<int, bool> loadingPhotos;
+  final Map<int, PhotoState> photoStates;
   final String? error;
 
   const HomeState({
     this.isLoading = false,
     this.albums = const [],
-    this.photosByAlbum = const {},
-    this.loadingPhotos = const {},
+    this.photoStates = const {},
     this.error,
   });
 
   HomeState copyWith({
     bool? isLoading,
     List<AlbumEntity>? albums,
-    Map<int, List<PhotoEntity>>? photosByAlbum,
-    Map<int, bool>? loadingPhotos,
+    Map<int, PhotoState>? photoStates,
     String? error,
   }) {
     return HomeState(
       isLoading: isLoading ?? this.isLoading,
       albums: albums ?? this.albums,
-      photosByAlbum: photosByAlbum ?? this.photosByAlbum,
-      loadingPhotos: loadingPhotos ?? this.loadingPhotos,
+      photoStates: photoStates ?? this.photoStates,
       error: error,
     );
   }
@@ -65,15 +87,22 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onLoadAlbums(LoadAlbums event, Emitter<HomeState> emit) async {
     try {
       emit(state.copyWith(isLoading: true, error: null));
-      final albums = await _repository.getAlbums();
-      emit(state.copyWith(
-        isLoading: false,
-        albums: albums,
-      ));
+      final albumState = await _repository.getAlbums();
 
-      // Load photos for initial visible albums
-      for (var i = 0; i < initialPhotosToLoad && i < albums.length; i++) {
-        add(LoadPhotosForAlbum(albums[i].id));
+      if (albumState.isSuccess()) {
+        var albums = albumState.data;
+
+        emit(state.copyWith(
+          isLoading: false,
+          albums: albums,
+        ));
+
+        // Load photos for initial visible albums
+        for (var i = 0; i < initialPhotosToLoad && i < albums.length; i++) {
+          add(LoadPhotosForAlbum(albums[i].id));
+        }
+      } else {
+        emit(state.copyWith(isLoading: false, error: albumState.error));
       }
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
@@ -82,27 +111,34 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onLoadPhotosForAlbum(
       LoadPhotosForAlbum event, Emitter<HomeState> emit) async {
+    // Skip if already loading
+    if (state.photoStates[event.albumId]?.isLoading == true) {
+      return;
+    }
+
+    // Set loading state for this album
+    emit(state.copyWith(
+      photoStates: Map.from(state.photoStates)
+        ..[event.albumId] = PhotoState(isLoading: true),
+    ));
+
     try {
-      // Skip if already loading or loaded
-      if (state.loadingPhotos[event.albumId] == true ||
-          state.photosByAlbum.containsKey(event.albumId)) {
-        return;
+      final photoState = await _repository.getPhotosByAlbumId(event.albumId);
+      if (photoState.isSuccess()) {
+        emit(state.copyWith(
+          photoStates: Map.from(state.photoStates)
+            ..[event.albumId] = PhotoState(photos: photoState.data),
+        ));
+      } else {
+        emit(state.copyWith(
+          photoStates: Map.from(state.photoStates)
+            ..[event.albumId] = PhotoState(error: photoState.error),
+        ));
       }
-
-      // Set loading state for this album
-      emit(state.copyWith(
-        loadingPhotos: Map.from(state.loadingPhotos)..[event.albumId] = true,
-      ));
-
-      final photos = await _repository.getPhotosByAlbumId(event.albumId);
-
-      emit(state.copyWith(
-        photosByAlbum: Map.from(state.photosByAlbum)..[event.albumId] = photos,
-        loadingPhotos: Map.from(state.loadingPhotos)..remove(event.albumId),
-      ));
     } catch (e) {
       emit(state.copyWith(
-        loadingPhotos: Map.from(state.loadingPhotos)..remove(event.albumId),
+        photoStates: Map.from(state.photoStates)
+          ..[event.albumId] = PhotoState(error: e.toString()),
       ));
     }
   }
@@ -112,18 +148,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       emit(state.copyWith(isLoading: true, error: null));
       await _repository.clearLocalData();
-      final albums = await _repository.getAlbums();
-      emit(state.copyWith(
-        isLoading: false,
-        albums: albums,
-        photosByAlbum: {},
-        loadingPhotos: {},
-      ));
-
-      // Load photos for initial visible albums
-      for (var i = 0; i < initialPhotosToLoad && i < albums.length; i++) {
-        add(LoadPhotosForAlbum(albums[i].id));
-      }
+      await _onLoadAlbums(LoadAlbums(), emit);
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }

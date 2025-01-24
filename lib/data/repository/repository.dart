@@ -1,14 +1,17 @@
 import 'package:injectable/injectable.dart';
+import 'package:navatech_assignment/core/exception/network_exception.dart';
+import 'package:navatech_assignment/core/state/network_result_state.dart';
 import 'package:navatech_assignment/data/dao/album_dao.dart';
 import 'package:navatech_assignment/data/dao/photo_dao.dart';
 import 'package:navatech_assignment/data/entity/album.dart';
 import 'package:navatech_assignment/data/entity/photo.dart';
 import 'package:navatech_assignment/data/service/backend_service.dart';
+import 'package:dio/dio.dart';
 
 abstract class IRepository {
-  Future<List<AlbumEntity>> getAlbums();
-  Future<List<PhotoEntity>> getPhotosByAlbumId(int albumId);
-  Future<void> clearLocalData();
+  Future<NetworkResultState<List<AlbumEntity>>> getAlbums();
+  Future<NetworkResultState<List<PhotoEntity>>> getPhotosByAlbumId(int albumId);
+  Future<NetworkResultState<void>> clearLocalData();
 }
 
 @Injectable(as: IRepository)
@@ -20,13 +23,13 @@ class Repository implements IRepository {
   Repository(this._backendService, this._albumDao, this._photoDao);
 
   @override
-  Future<List<AlbumEntity>> getAlbums() async {
+  Future<NetworkResultState<List<AlbumEntity>>> getAlbums() async {
     try {
       // Try to get albums from local database first
       final localAlbums = await _albumDao.getAllAlbums();
 
       if (localAlbums.isNotEmpty) {
-        return localAlbums;
+        return NetworkResultState.success(localAlbums);
       }
 
       // If local database is empty, fetch from API
@@ -35,20 +38,24 @@ class Repository implements IRepository {
       // Save to local database
       await _albumDao.insertAlbums(remoteAlbums);
 
-      return remoteAlbums;
+      return NetworkResultState.success(remoteAlbums);
+    } on DioException catch (e) {
+      final networkException = NetworkException.fromDioError(e);
+      return NetworkResultState.error(networkException.message);
     } catch (e) {
-      rethrow;
+      return NetworkResultState.error(e.toString());
     }
   }
 
   @override
-  Future<List<PhotoEntity>> getPhotosByAlbumId(int albumId) async {
+  Future<NetworkResultState<List<PhotoEntity>>> getPhotosByAlbumId(
+      int albumId) async {
     try {
       // Try to get photos from local database first
       final localPhotos = await _photoDao.getPhotosByAlbumId(albumId);
 
       if (localPhotos.isNotEmpty) {
-        return localPhotos;
+        return NetworkResultState.success(localPhotos);
       }
 
       // If local database is empty, fetch from API
@@ -57,21 +64,25 @@ class Repository implements IRepository {
       // Save to local database
       await _photoDao.insertPhotos(remotePhotos);
 
-      return remotePhotos;
+      return NetworkResultState.success(remotePhotos);
+    } on DioException catch (e) {
+      final networkException = NetworkException.fromDioError(e);
+      return NetworkResultState.error(networkException.message);
     } catch (e) {
-      rethrow;
+      return NetworkResultState.error(e.toString());
     }
   }
 
   @override
-  Future<void> clearLocalData() async {
+  Future<NetworkResultState<void>> clearLocalData() async {
     try {
       await Future.wait([
         _albumDao.deleteAllAlbums(),
         _photoDao.deleteAllPhotos(),
       ]);
+      return const NetworkResultState.success(null);
     } catch (e) {
-      rethrow;
+      return NetworkResultState.error(e.toString());
     }
   }
 }
