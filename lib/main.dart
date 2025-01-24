@@ -5,6 +5,7 @@ import 'package:navatech_assignment/core/di/injection.dart';
 import 'package:navatech_assignment/core/theme/app_theme.dart';
 import 'package:navatech_assignment/home/page/home_screen.dart';
 import 'package:navatech_assignment/home/store/home_store.dart';
+import 'package:navatech_assignment/home/state/states.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
