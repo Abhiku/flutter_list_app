@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:navatech_assignment/core/di/injection.dart';
 import 'package:navatech_assignment/core/theme/app_theme.dart';
-import 'package:navatech_assignment/data/home/page/home_screen.dart';
-import 'package:navatech_assignment/data/home/store/home_store.dart';
+import 'package:navatech_assignment/home/page/home_screen.dart';
+import 'package:navatech_assignment/home/store/home_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

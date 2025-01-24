@@ -15,7 +15,7 @@ import 'package:navatech_assignment/core/local/app_database.dart' as _i56;
 import 'package:navatech_assignment/core/network/api_client.dart' as _i867;
 import 'package:navatech_assignment/data/dao/album_dao.dart' as _i611;
 import 'package:navatech_assignment/data/dao/photo_dao.dart' as _i391;
-import 'package:navatech_assignment/data/home/store/home_store.dart' as _i225;
+import 'package:navatech_assignment/home/store/home_store.dart' as _i225;
 import 'package:navatech_assignment/data/repository/repository.dart' as _i54;
 import 'package:navatech_assignment/data/service/backend_service.dart' as _i774;
 

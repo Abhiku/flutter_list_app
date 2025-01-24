@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:navatech_assignment/data/home/store/home_store.dart';
+import 'package:navatech_assignment/home/store/home_store.dart';
 import 'package:collection/collection.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
